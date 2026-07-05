@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
-// 🚀 LIFECYCLE MATRIX UPGRADE: Idinagdag ang 'Raised to APPTech' sa opisyal na pipeline list
+// LIFECYCLE MATRIX UPGRADE: Idinagdag ang 'Raised to APPTech' sa opisyal na pipeline list
 const orderedStatuses = ['Registered', 'Assigned', 'Work in Progress', 'Raised to APPTech', 'Completed', 'Closed'];
 
 // Opisyal na roster ng mga ERP Assignee Leads mo
@@ -219,7 +219,8 @@ export default function TicketDetailsPage() {
               return (
                 <div 
                   key={step} 
-                  className={`relative flex flex-1 items-center justify-center py-2 px-6 text-[10px] font-black uppercase tracking-wider transition-all duration-300
+                  /* 🎨 FIXED SIZES: Ginawang text-[9px] para magkasya lahat at binawasan ang padding sa px-2 */
+                  className={`relative flex flex-1 items-center justify-center py-2 px-2 text-[9px] font-black uppercase tracking-wider transition-all duration-300
                     ${isCurrent 
                       ? 'bg-emerald-600 text-white font-black shadow-md' 
                       : isPast 
@@ -237,7 +238,8 @@ export default function TicketDetailsPage() {
                       : 'none'
                   }}
                 >
-                  <span>{step} {isPast && '✓'}</span>
+                  {/* Pinagsama sa isang linya para iwas overlapping block formats */}
+                  <span>{step}{isPast ? ' ✓' : ''}</span>
                 </div>
               );
             })}
@@ -436,7 +438,6 @@ export default function TicketDetailsPage() {
 
           {!isClosed ? (
             <div className="pt-2 border-t">
-              {/* ⌨️ ADMIN TEXTAREA INTEGRATED WITH ENTER TO SEND */}
               <textarea 
                 value={newComment} 
                 onChange={(e) => setNewComment(e.target.value)} 
