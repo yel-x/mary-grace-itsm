@@ -38,14 +38,18 @@ export default function TicketDetailsPage() {
 
   const fetchTicket = async () => {
     try {
-      const token = window.localStorage.getItem('itsm-admin-token');
-      const res = await fetch(`/api/tickets?id=${id}`, { headers: token ? { 'x-admin-token': token } : undefined });
+      const token = window.localStorage.getItem('itsm-admin-token') || '';
+      const res = await fetch(`/api/tickets?id=${id}`, { 
+        headers: { 'x-admin-token': token } 
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Unable to load ticket');
       setTicket(data.ticket || null);
       
       try {
-        const commentsRes = await fetch(`/api/ticket_comments?ticket_id=${data.ticket?.id}`, { headers: token ? { 'x-admin-token': token } : undefined });
+        const commentsRes = await fetch(`/api/ticket_comments?ticket_id=${data.ticket?.id}`, { 
+          headers: { 'x-admin-token': token } 
+        });
         const commentsData = await commentsRes.json();
         if (commentsRes.ok) setComments(commentsData.comments || []);
       } catch (err) {
@@ -70,10 +74,13 @@ export default function TicketDetailsPage() {
     if (!ticket) return;
     setUpdatingStatus(true);
     try {
-      const token = window.localStorage.getItem('itsm-admin-token');
+      const token = window.localStorage.getItem('itsm-admin-token') || '';
       const response = await fetch('/api/tickets', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...(token ? { 'x-admin-token': token } : {}) },
+        headers: { 
+          'Content-Type': 'application/json', 
+          'x-admin-token': token 
+        },
         body: JSON.stringify({ id: ticket.id, ...fields }),
       });
       const data = await response.json();
@@ -345,11 +352,14 @@ export default function TicketDetailsPage() {
                 <button 
                   onClick={async () => {
                     if (!newComment.trim()) return;
-                    const token = window.localStorage.getItem('itsm-admin-token');
+                    const token = window.localStorage.getItem('itsm-admin-token') || '';
                     try {
                       const res = await fetch('/api/ticket_comments', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', ...(token ? { 'x-admin-token': token } : {}) },
+                        headers: { 
+                          'Content-Type': 'application/json', 
+                          'x-admin-token': token 
+                        },
                         body: JSON.stringify({ ticket_id: ticket.id, sender: 'Admin', message: newComment.trim() }),
                       });
                       const data = await res.json();
