@@ -162,16 +162,27 @@ export default function HomePage() {
     }
   };
 
-  // 🔄 Swabe at mabilis na conversation log refresh workflow nang walang page reload
-  const fetchCommentsOnly = async () => {
-    if (!trackedTicket?.id) return;
+  // 🔄 🛠️ UPGRADED UNIVERSAL SYNC REFRESH ENGINE
+  // Ngayon, sabay na nitong kukunin ang pinakabagong Status mula sa database pati na rin ang conversation thread!
+  const handleUniversalRefresh = async () => {
+    if (!trackedTicket?.ticket_number) return;
     setIsRefreshingComments(true);
     try {
+      // 1. Re-fetch ang Ticket metadata para makuha ang live Status update mula sa admin side
+      const ticketRes = await fetch(`/api/tickets?ticket_number=${encodeURIComponent(trackedTicket.ticket_number.trim())}`);
+      const ticketData = await ticketRes.json();
+      if (ticketRes.ok && ticketData.ticket) {
+        setTrackedTicket(ticketData.ticket); // Dito mapapalitan ang REGISTERED patungong CLOSED live!
+      }
+
+      // 2. Re-fetch ang Conversation Comments thread
       const commentsRes = await fetch(`/api/ticket_comments?ticket_id=${trackedTicket.id}`);
       const commentsData = await commentsRes.json();
-      if (commentsRes.ok) setTrackedComments(commentsData.comments || []);
+      if (commentsRes.ok) {
+        setTrackedComments(commentsData.comments || []);
+      }
     } catch (err) {
-      console.warn('Failed to sync thread comments', err);
+      console.warn('Failed to universally sync the record thread:', err);
     } finally {
       setIsRefreshingComments(false);
     }
@@ -246,9 +257,8 @@ export default function HomePage() {
 
     if (userInputEmail === databaseOwnerEmail) {
       setIsVerifiedVerifiedOwner(true);
-      void fetchCommentsOnly();
+      void handleUniversalRefresh(); // Unang tawag gamit ang universal sync method
     } else {
-      // 🇺🇸 TRANSLATED ENGINE FOR PRODUCTION: Isinalin nang malinis sa English ang security diagnostic response block
       setSecurityGateError('You are not authorized to view this ticket because you are not the original requestor.');
     }
   };
@@ -407,7 +417,7 @@ export default function HomePage() {
         </section>
       </div>
 
-      {/* TRACKING MODAL DISPLAY WORKSPACE */}
+      {/* TRACKING MODAL DISPLAY WORKSPACE WITH INTEGRATED DYNAMIC SCALING ENGINE */}
       {trackModalOpen && trackedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
           <div className={`border border-slate-400 bg-white p-5 shadow-xl overflow-y-auto transition-all duration-300 flex flex-col justify-between
@@ -418,6 +428,7 @@ export default function HomePage() {
               <div>
                 <h3 className="text-lg font-black text-[#800000]">Ticket {trackedTicket.ticket_number}</h3>
                 <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs">
+                  {/* 🎯 LIVE REAL-TIME METADATA FIELD HEADER LOOKUP (Awtomatiko na itong mag-se-sync sa universal refresh) */}
                   <p className="text-slate-500 font-bold">Status: 
                     <span className={`ml-1.5 inline-block rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-wide
                       ${trackedTicket.status === 'Closed' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-800'}`}>
@@ -472,7 +483,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* 🇺🇸 SECURITY GATE FULL ENGLISH VIEWPORT TRANSLATION BLOCK */}
+            {/* SECURITY GATE FULL ENGLISH VIEWPORT TRANSLATION BLOCK */}
             {!isVerifiedOwner ? (
               <div className="my-auto py-10 max-w-md mx-auto w-full text-center space-y-4 font-sans">
                 <div className="text-4xl">🔒</div>
@@ -515,8 +526,9 @@ export default function HomePage() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Conversation Thread</h4>
+                    {/* 🔄 NAKATALI NA SA LATEST UNIVERSAL SYNC SYSTEM METHOD (Sabay na magre-refresh ang status, metadata, at chat bubbles) */}
                     <button
-                      onClick={fetchCommentsOnly}
+                      onClick={handleUniversalRefresh}
                       disabled={isRefreshingComments}
                       className="text-[10px] font-bold text-slate-500 border border-slate-300 hover:border-[#800000] hover:text-[#800000] bg-white rounded px-2 py-0.5 shadow-sm transition disabled:opacity-40"
                     >
@@ -619,7 +631,7 @@ export default function HomePage() {
                   ) : (
                     <div className="rounded bg-red-50 border border-red-100 p-3 text-xs text-red-800 font-bold italic text-center">
                       🔒 This incident file has been verified and permanently closed. Communication stream is locked.
-                  </div>
+                    </div>
                   )}
                 </div>
               </div>
