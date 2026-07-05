@@ -3,8 +3,16 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
-const orderedStatuses = ['Registered', 'Assigned', 'Work in Progress', 'Completed', 'Closed'];
-const supportEngineers = ['ERP Support Team 1', 'ERP Support Team 2', 'Technical Support Lead'];
+// 🚀 LIFECYCLE MATRIX UPGRADE: Idinagdag ang 'Raised to APPTech' sa opisyal na pipeline list
+const orderedStatuses = ['Registered', 'Assigned', 'Work in Progress', 'Raised to APPTech', 'Completed', 'Closed'];
+
+// Opisyal na roster ng mga ERP Assignee Leads mo
+const supportEngineers = [
+  'ERP Lead - Cris',
+  'ERP Admin Support-Prince',
+  'ERP Technical Support-Jones',
+  'ERP Technical Support-Yel'
+];
 
 type Ticket = {
   id: string;
@@ -35,7 +43,9 @@ export default function TicketDetailsPage() {
   const [comments, setComments] = useState<Array<{id: string; sender: string; message: string; created_at: string}>>([]);
   const [newComment, setNewComment] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [isRefreshingComments, setIsRefreshingComments] = useState(false);
 
+  // Core data fetch setup
   const fetchTicket = async () => {
     try {
       const token = window.localStorage.getItem('itsm-admin-token') || '';
@@ -46,19 +56,29 @@ export default function TicketDetailsPage() {
       if (!res.ok) throw new Error(data?.error || 'Unable to load ticket');
       setTicket(data.ticket || null);
       
-      try {
-        const commentsRes = await fetch(`/api/ticket_comments?ticket_id=${data.ticket?.id}`, { 
-          headers: { 'x-admin-token': token } 
-        });
-        const commentsData = await commentsRes.json();
-        if (commentsRes.ok) setComments(commentsData.comments || []);
-      } catch (err) {
-        console.warn('Failed to load comments', err);
-      }
+      await fetchCommentsOnly();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Naka-isolate na stream para sa dynamic comment log refresh routine
+  const fetchCommentsOnly = async () => {
+    if (!id) return;
+    setIsRefreshingComments(true);
+    try {
+      const token = window.localStorage.getItem('itsm-admin-token') || '';
+      const commentsRes = await fetch(`/api/ticket_comments?ticket_id=${id}`, { 
+        headers: { 'x-admin-token': token } 
+      });
+      const commentsData = await commentsRes.json();
+      if (commentsRes.ok) setComments(commentsData.comments || []);
+    } catch (err) {
+      console.warn('Failed to refresh comments', err);
+    } finally {
+      setIsRefreshingComments(false);
     }
   };
 
@@ -69,6 +89,35 @@ export default function TicketDetailsPage() {
     }
     void fetchTicket();
   }, [id, router]);
+
+  const handlePostAdminComment = async () => {
+    if (!newComment.trim()) return;
+    const token = window.localStorage.getItem('itsm-admin-token') || '';
+    try {
+      const res = await fetch('/api/ticket_comments', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'x-admin-token': token 
+        },
+        body: JSON.stringify({ ticket_id: ticket?.id, sender: 'Admin', message: newComment.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to post comment');
+      setComments((prev) => [...prev, data.comment]);
+      setNewComment('');
+    } catch (err) {
+      alert('Error broadcasting comment log');
+    }
+  };
+
+  // ⌨️ ADMIN KEYBOARD INTERCEPT ENGINE: Enter to Send / Shift+Enter for New Line
+  const handleAdminKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      void handlePostAdminComment();
+    }
+  };
 
   const handleUpdate = async (fields: { status?: string; assigned_to?: string | null }) => {
     if (!ticket) return;
@@ -120,7 +169,7 @@ export default function TicketDetailsPage() {
     <main className="min-h-screen bg-[#fcfcf9] p-4 lg:p-6 text-slate-800 font-sans">
       <div className="mx-auto max-w-5xl flex flex-col gap-5">
         
-        {/* ACTION HEADER BAR - BRANDED WITH REAL MARY GRACE LOGO (.jpeg) */}
+        {/* ACTION HEADER BAR */}
         <div className="flex items-center justify-between border-b-4 border-[#800000] pb-2">
           <div className="flex items-center gap-4">
             <img src="/mary-grace-logo.jpeg" alt="Mary Grace Logo" className="w-28 h-20 object-contain rounded" />
@@ -263,8 +312,8 @@ export default function TicketDetailsPage() {
                     const currentIdx = orderedStatuses.indexOf(ticket.status || 'Registered');
                     
                     if (option === 'Closed') return null;
-                    if (currentIdx >= 2 && option === 'Assigned') return null;
-                    if (currentIdx >= 2 && option === 'Registered') return null;
+                    if (currentIdx >= 3 && option === 'Assigned') return null;
+                    if (currentIdx >= 3 && option === 'Registered') return null;
 
                     return <option key={option} value={option}>{option}</option>;
                   })}
@@ -322,54 +371,83 @@ export default function TicketDetailsPage() {
 
         {/* WORKNOTES DISCUSSION MATRIX PANEL */}
         <div className="border border-slate-300 bg-white p-5 shadow-sm space-y-3">
-          <div className="border-b pb-1.5">
+          <div className="border-b pb-1.5 flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#800000]">Worknotes & System Logs</h3>
+            <button
+              onClick={fetchCommentsOnly}
+              disabled={isRefreshingComments}
+              className="text-[10px] font-bold text-slate-500 border border-slate-300 hover:border-[#800000] hover:text-[#800000] bg-white rounded px-2 py-0.5 shadow-sm transition disabled:opacity-40"
+            >
+              {isRefreshingComments ? '⏳ Syncing...' : '🔄 Refresh Logs'}
+            </button>
           </div>
           
-          <div className="space-y-2 max-h-52 overflow-y-auto border p-2 bg-slate-50/50">
+          {/* SLACK/MESSENGER CHAT BUBBLES FOR ADMIN */}
+          <div className="space-y-4 max-h-[400px] overflow-y-auto border p-4 bg-slate-50 rounded shadow-inner font-sans">
             {comments.length === 0 ? (
-              <div className="text-xs text-slate-400 italic">No historical communication logs recorded inside active viewport.</div>
+              <div className="text-xs text-slate-400 italic text-center py-4">No historical communication logs recorded inside active viewport.</div>
             ) : (
-              comments.map((c) => (
-                <div key={c.id} className={`p-2 rounded text-xs border ${c.sender === 'Admin' ? 'bg-red-50/40 border-red-100' : 'bg-white border-slate-200'}`}>
-                  <div className="text-[10px] font-bold text-slate-400">{c.sender} • {new Date(c.created_at).toLocaleString()}</div>
-                  <div className="mt-0.5 text-slate-800 font-medium whitespace-pre-wrap">{c.message}</div>
-                </div>
-              ))
+              comments.map((c) => {
+                const isAdmin = c.sender === 'Admin';
+                
+                return (
+                  <div key={c.id} className={`flex items-start gap-2.5 ${isAdmin ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-sm shrink-0
+                      ${isAdmin ? 'bg-[#800000]' : 'bg-[#1e3f20]'}`}
+                    >
+                      {isAdmin ? 'AD' : 'US'}
+                    </div>
+
+                    <div className={`flex flex-col max-w-[75%] gap-1 ${isAdmin ? 'items-end' : 'items-start'}`}>
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 px-1">
+                        <span className="text-slate-700">{isAdmin ? 'Admin Support' : 'User/Client'}</span>
+                        <span>•</span>
+                        <span>{new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+
+                      <div className={`rounded-2xl px-4 py-2.5 text-xs font-medium whitespace-pre-wrap leading-relaxed shadow-sm
+                        ${isAdmin 
+                          ? 'bg-blue-600 text-white rounded-tr-none' 
+                          : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
+                        }`}
+                      >
+                        {c.message.includes('[Attached Screenshot Asset]:') ? (
+                          <>
+                            <p>{c.message.split('[Attached Screenshot Asset]:')[0].trim()}</p>
+                            <div className="mt-2 max-w-xs border rounded overflow-hidden p-1 bg-slate-50 shadow-inner">
+                              <img 
+                                src={c.message.split('[Attached Screenshot Asset]:')[1].trim()} 
+                                alt="User Comment Attachment" 
+                                className="max-h-40 w-full object-contain cursor-zoom-in"
+                                onClick={() => window.open(c.message.split('[Attached Screenshot Asset]:')[1].trim(), '_blank')}
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          c.message
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
 
           {!isClosed ? (
             <div className="pt-2 border-t">
+              {/* ⌨️ ADMIN TEXTAREA INTEGRATED WITH ENTER TO SEND */}
               <textarea 
                 value={newComment} 
                 onChange={(e) => setNewComment(e.target.value)} 
+                onKeyDown={handleAdminKeyDown}
                 rows={3} 
-                placeholder="Type internal worknote logs or customer notification feeds..."
+                placeholder="Type internal worknote logs... (Press Enter to send, Shift+Enter for new line)"
                 className="w-full border border-slate-300 p-2 text-xs outline-none focus:border-[#800000] rounded bg-white text-slate-800" 
               />
               <div className="mt-1 flex gap-2">
                 <button 
-                  onClick={async () => {
-                    if (!newComment.trim()) return;
-                    const token = window.localStorage.getItem('itsm-admin-token') || '';
-                    try {
-                      const res = await fetch('/api/ticket_comments', {
-                        method: 'POST',
-                        headers: { 
-                          'Content-Type': 'application/json', 
-                          'x-admin-token': token 
-                        },
-                        body: JSON.stringify({ ticket_id: ticket.id, sender: 'Admin', message: newComment.trim() }),
-                      });
-                      const data = await res.json();
-                      if (!res.ok) throw new Error(data.error || 'Failed to post comment');
-                      setComments((prev) => [...prev, data.comment]);
-                      setNewComment('');
-                    } catch (err) {
-                      alert('Error broadcasting comment log');
-                    }
-                  }} 
+                  onClick={handlePostAdminComment}
                   className="bg-[#800000] rounded px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#600000] transition"
                 >
                   Commit Log Entry

@@ -5,7 +5,8 @@ import nodemailer from 'nodemailer';
 // 🚀 PINILIT ANG NEXT.JS NA I-FORCE DYNAMIC ANG ROUTE PARA IWASAN ANG SERVER CACHE ENGINES
 export const dynamic = 'force-dynamic';
 
-const statusOptions = ['Registered', 'Assigned', 'Work in Progress', 'Completed', 'Closed'];
+// 🚀 FIXED MANIFEST: Isinama na officially ang 'Raised to APPTech' sa server-side options checking array
+const statusOptions = ['Registered', 'Assigned', 'Work in Progress', 'Raised to APPTech', 'Completed', 'Closed'];
 const storageBucket = 'ticket-attachments';
 
 async function sendEmailNotification(ticket: Record<string, unknown>) {
@@ -157,10 +158,7 @@ export async function POST(request: Request) {
       requestor_user_id: formData.get('requestor_user_id')?.toString().trim() || null,
       contact_type: formData.get('contact_type')?.toString() || null,
       priority: formData.get('priority')?.toString() || null,
-      
-      // 🚀 FIXED SYSTEM PAYLOAD: 'location' lang talaga ang column sa Supabase mo kaya ito lang ang iinsandig natin
       location: department,
-      
       short_description: formData.get('short_description')?.toString().trim() || null,
       description: formData.get('description')?.toString().trim() || null,
       attachment_url: uploadedUrls.length > 0 ? uploadedUrls[0] : null,
@@ -213,18 +211,19 @@ export async function PATCH(request: Request) {
 
     const supabase = getSupabaseClient();
     
+    // 🚀 FIXED: Ginawang `.maybeSingle()` para maging matatag ang parsing at iwas coercion crashes ang data table hook
     const { data, error } = await supabase
       .from('tickets')
       .update(updatePayload)
       .eq('id', body.id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (data.status === 'Completed' || data.status === 'Closed') {
+    if (data && (data.status === 'Completed' || data.status === 'Closed')) {
       try {
         await sendStatusUpdateNotification({
           id: data.id,

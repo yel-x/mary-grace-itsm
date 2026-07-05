@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const orderedStatuses = ['Registered', 'Assigned', 'Work in Progress', 'Completed', 'Closed'];
+// 🚀 IDINAGDAG ANG 'Raised to APPTech' LIFECYCLE STATE SA OPERATIONAL MATRICES
+const orderedStatuses = ['Registered', 'Assigned', 'Work in Progress', 'Raised to APPTech', 'Completed', 'Closed'];
 
 type Ticket = {
   id: string;
@@ -69,7 +70,6 @@ export default function AdminDashboard() {
     e.preventDefault();
     setLoginError('');
 
-    // Kinukuha ang credentials mula sa environment variables o gumagamit ng built-in fallbacks
     const targetUser = process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin';
     const targetPass = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'Admin@123';
 
@@ -92,7 +92,8 @@ export default function AdminDashboard() {
     const registered = tickets.filter(t => t.status === 'Registered').length;
     
     const onHold = 0;
-    const raisedToAppTech = 0;
+    // 🎗️ DYNAMIC COUNTER FIX: Binabasa na rito ang totoong dami ng mga incident files na may APPTech status tag
+    const raisedToAppTech = tickets.filter(t => t.status === 'Raised to APPTech').length;
     const raisedToSap = 0;
 
     const deptMap: Record<string, number> = {};
@@ -268,9 +269,10 @@ export default function AdminDashboard() {
             <p className="text-[10px] font-bold uppercase text-blue-900">Cancelled/OnHold</p>
             <p className="text-3xl font-black text-slate-400 mt-1">{reportData.onHold}</p>
           </div>
+          {/* 🎯 WORKING LOGIC WIDGET: Matagumpay nang nakakabit sa metrics block layout ang Raised to APPTech scorecard */}
           <div className="border border-slate-400 bg-white text-center p-3 shadow-sm">
             <p className="text-[10px] font-bold uppercase text-blue-900">Raised to APPTech</p>
-            <p className="text-3xl font-black text-slate-400 mt-1">{reportData.raisedToAppTech}</p>
+            <p className="text-3xl font-black text-slate-900 mt-1">{reportData.raisedToAppTech}</p>
           </div>
           <div className="border border-slate-400 bg-white text-center p-3 shadow-sm">
             <p className="text-[10px] font-bold uppercase text-blue-900">Overall SLA Compliance</p>
@@ -484,6 +486,7 @@ export default function AdminDashboard() {
                           ${ticket.status === 'Closed' ? 'bg-red-50 text-red-700 ring-red-600/10' : 
                             ticket.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/10' :
                             ticket.status === 'Work in Progress' ? 'bg-sky-50 text-sky-700 ring-sky-600/10' :
+                            ticket.status === 'Raised to APPTech' ? 'bg-purple-50 text-purple-700 ring-purple-600/10 font-bold' :
                             'bg-slate-100 text-slate-700 ring-slate-600/10'}`}
                         >
                           {ticket.status || 'Registered'}

@@ -39,8 +39,8 @@ const initialState: TicketFormState = {
   requestor_email: '',
   requestor_t_number: '',
   requestor_user_id: '',
-  contact_type: '', // Ginawang blanko para magsimula sa "Choose"
-  priority: '',     // Ginawang blanko para magsimula sa "Choose"
+  contact_type: '',
+  priority: '',
   department: '',
   short_description: '',
   description: '',
@@ -58,6 +58,14 @@ export default function HomePage() {
   const [replyMessage, setReplyMessage] = useState('');
   const [trackModalOpen, setTrackModalOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  
+  // States para sa real-time attachments at thread syncing inside user modal views
+  const [commentImage, setCommentImage] = useState<File | null>(null);
+  const [isUploadingComment, setIsUploadingComment] = useState(false);
+  const [isRefreshingComments, setIsRefreshingComments] = useState(false);
+
+  // State switch para sa modal tracking screen scale view maximization architecture
+  const [isModalMaximized, setIsModalMaximized] = useState(false);
 
   const handleChange = (field: keyof TicketFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -149,11 +157,85 @@ export default function HomePage() {
     }
   };
 
+  // 🔄 Swabe at mabilis na conversation log refresh workflow nang walang page reload
+  const fetchCommentsOnly = async () => {
+    if (!trackedTicket?.id) return;
+    setIsRefreshingComments(true);
+    try {
+      const commentsRes = await fetch(`/api/ticket_comments?ticket_id=${trackedTicket.id}`);
+      const commentsData = await commentsRes.json();
+      if (commentsRes.ok) setTrackedComments(commentsData.comments || []);
+    } catch (err) {
+      console.warn('Failed to sync thread comments', err);
+    } finally {
+      setIsRefreshingComments(false);
+    }
+  };
+
+  // 📸 Suporta para sa Text + Storage Bucket Image upload framework sa comment session
+  const handlePostUserResponse = async () => {
+    if (!replyMessage.trim() && !commentImage) return;
+    setIsUploadingComment(true);
+
+    try {
+      let finalMessage = replyMessage.trim();
+
+      if (commentImage) {
+        const { getSupabaseClient } = await import('@/lib/supabase');
+        const supabase = getSupabaseClient();
+        const fileExt = commentImage.name.split('.').pop();
+        const fileName = `${trackedTicket.id}-${Date.now()}.${fileExt}`;
+        const filePath = `comment-attachments/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('ticket-attachments')
+          .upload(filePath, commentImage);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('ticket-attachments')
+          .getPublicUrl(filePath);
+
+        const uploadedImageUrl = publicUrlData.publicUrl;
+        
+        finalMessage = finalMessage 
+          ? `${finalMessage}\n\n[Attached Screenshot Asset]: ${uploadedImageUrl}`
+          : `[Attached Screenshot Asset]: ${uploadedImageUrl}`;
+      }
+
+      const res = await fetch('/api/ticket_comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket_id: trackedTicket.id, sender: 'User', message: finalMessage }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to post message');
+      
+      setTrackedComments((prev) => [...prev, data.comment]);
+      setReplyMessage('');
+      setCommentImage(null); 
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error sending message');
+    } finally {
+      setIsUploadingComment(false);
+    }
+  };
+
+  // ⌨️ USER KEYBOARD INTERCEPT ENGINE: Enter to Send / Shift+Enter for New Line
+  const handleUserKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault(); // Iwasan ang pagbaba ng cursor
+      void handlePostUserResponse(); // Direktang trigger ng transmission hook
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#fcfcf9] p-4 lg:p-6 text-slate-800 font-sans">
       <div className="mx-auto max-w-[1650px] flex flex-col gap-5">
         
-        {/* 🍰 HEADER BRANDING: Real Mary Grace Logo and Slogan Setup */}
+        {/* 🍰 HEADER BRANDING */}
         <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b-4 border-[#800000] pb-3">
           <div className="flex items-center gap-4 w-full justify-between">
             <div className="flex items-center gap-3">
@@ -175,11 +257,9 @@ export default function HomePage() {
           <div className="lg:col-span-2 border border-slate-300 bg-white p-5 shadow-sm">
             <div className="border-b pb-2 mb-4">
               <h2 className="text-sm font-bold uppercase tracking-wider text-[#800000]">User Request Form</h2>
-              
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* FIXED RESPONSIVE COLUMN GRID */}
               <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                 <label className="block text-xs font-bold text-slate-600">
                   <span>Requestor Name *</span>
@@ -304,11 +384,14 @@ export default function HomePage() {
         </section>
       </div>
 
-      {/* TRACKING MODAL DISPLAY WORKSPACE */}
+      {/* TRACKING MODAL DISPLAY WORKSPACE WITH INTEGRATED DYNAMIC SCALING ENGINE */}
       {trackModalOpen && trackedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-          <div className="w-full max-w-2xl border border-slate-400 bg-white p-5 shadow-xl overflow-y-auto max-h-[90vh]">
-            <div className="flex items-start justify-between border-b-2 border-[#800000] pb-3">
+          <div className={`border border-slate-400 bg-white p-5 shadow-xl overflow-y-auto transition-all duration-300 flex flex-col justify-between
+            ${isModalMaximized ? 'w-[98vw] h-[96vh] max-h-[96vh]' : 'w-full max-w-2xl max-h-[90vh]'}`}
+          >
+            {/* MODAL WINDOW HEADER BLOCK BAR */}
+            <div className="flex items-start justify-between border-b-2 border-[#800000] pb-3 shrink-0">
               <div>
                 <h3 className="text-lg font-black text-[#800000]">Ticket {trackedTicket.ticket_number}</h3>
                 <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs">
@@ -342,51 +425,145 @@ export default function HomePage() {
                   )}
                 </div>
               </div>
-              <button onClick={() => setTrackModalOpen(false)} className="rounded border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100">Close</button>
+              
+              {/* 🎯 HEADER ACTION WINDOW CONTROLS ALIGNED TO THE RIGHT CORNER TOGETHER */}
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setIsModalMaximized(!isModalMaximized)}
+                  title={isModalMaximized ? "Minimize Window" : "Maximize Window"}
+                  className="rounded border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600 hover:bg-slate-200 transition"
+                >
+                  {isModalMaximized ? '🗕' : '🗖'}
+                </button>
+                <button 
+                  onClick={() => {
+                    setTrackModalOpen(false);
+                    setIsModalMaximized(false);
+                  }} 
+                  className="rounded border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
-            <div className="mt-4 space-y-4">
+            {/* SCROLLABLE SCALABLE WORKSPACE INNER SHEETS */}
+            <div className="mt-4 space-y-4 overflow-y-auto flex-1 pr-1">
               <div className="bg-slate-50 p-3 border border-slate-200 text-xs rounded">
                 <span className="font-bold text-blue-900 block uppercase tracking-wide mb-1">Incident Summary</span>
                 <p className="font-semibold text-slate-800">{trackedTicket.short_description}</p>
               </div>
 
               <div>
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Conversation Thread</h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto border p-2 bg-slate-50/50">
-                  {trackedComments.length === 0 ? <div className="text-xs text-slate-400 italic">No historical messages.</div> : trackedComments.map((c) => (
-                    <div key={c.id} className={`p-2 rounded text-xs border ${c.sender === 'Admin' ? 'bg-[#f4dcd6]/40 border-red-100' : 'bg-white border-slate-200'}`}>
-                      <div className="text-[10px] font-bold text-slate-500">{c.sender} • {new Date(c.created_at).toLocaleString()}</div>
-                      <div className="mt-0.5 text-slate-800 font-medium whitespace-pre-wrap">{c.message}</div>
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Conversation Thread</h4>
+                  <button
+                    onClick={fetchCommentsOnly}
+                    disabled={isRefreshingComments}
+                    className="text-[10px] font-bold text-slate-500 border border-slate-300 hover:border-[#800000] hover:text-[#800000] bg-white rounded px-2 py-0.5 shadow-sm transition disabled:opacity-40"
+                  >
+                    {isRefreshingComments ? '⏳ Syncing...' : '🔄 Refresh Logs'}
+                  </button>
+                </div>
+                
+                {/* MODERN CHAT BUBBLES FOR USER SIDE */}
+                <div className={`space-y-4 overflow-y-auto border p-4 bg-slate-50 rounded shadow-inner font-sans transition-all duration-200
+                  ${isModalMaximized ? 'max-h-[500px]' : 'max-h-56'}`}
+                >
+                  {trackedComments.length === 0 ? (
+                    <div className="text-xs text-slate-400 italic text-center py-4">No historical messages populated inside thread view.</div>
+                  ) : (
+                    trackedComments.map((c) => {
+                      const isUser = c.sender === 'User';
+                      
+                      return (
+                        <div key={c.id} className={`flex items-start gap-2.5 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                          {/* AVATAR ICON */}
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-sm shrink-0
+                            ${isUser ? 'bg-[#1e3f20]' : 'bg-[#800000]'}`}
+                          >
+                            {isUser ? 'US' : 'AD'}
+                          </div>
+
+                          {/* CHAT BUBBLE MATRICES */}
+                          <div className={`flex flex-col max-w-[75%] gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
+                            {/* SENDER NAME & TIMESTAMP */}
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 px-1">
+                              <span className="text-slate-700">{isUser ? 'You (Client)' : 'Mary Grace Helpdesk'}</span>
+                              <span>•</span>
+                              <span>{new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+
+                            {/* BUBBLE BODY WITH IMAGE RE-TRANSFORMATION ENGINE */}
+                            <div className={`rounded-2xl px-4 py-2.5 text-xs font-medium whitespace-pre-wrap leading-relaxed shadow-sm
+                              ${isUser 
+                                ? 'bg-blue-600 text-white rounded-tr-none' 
+                                : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
+                              }`}
+                            >
+                              {c.message.includes('[Attached Screenshot Asset]:') ? (
+                                <>
+                                  <p>{c.message.split('[Attached Screenshot Asset]:')[0].trim()}</p>
+                                  <div className="mt-2 max-w-xs border rounded overflow-hidden p-1 bg-slate-50 shadow-inner">
+                                    <img 
+                                      src={c.message.split('[Attached Screenshot Asset]:')[1].trim()} 
+                                      alt="Comment Attachment Preview" 
+                                      className="max-h-40 w-full object-contain cursor-zoom-in"
+                                      onClick={() => window.open(c.message.split('[Attached Screenshot Asset]:')[1].trim(), '_blank')}
+                                    />
+                                  </div>
+                                </>
+                              ) : (
+                                c.message
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
-              <div className="border-t pt-3">
+              <div className="border-t pt-3 shrink-0">
                 {trackedTicket.status !== 'Closed' ? (
-                  <>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">Reply Message</label>
-                    <textarea value={replyMessage} onChange={(e) => setReplyMessage(e.target.value)} rows={3} className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#800000]" />
-                    <div className="mt-2 flex gap-2">
-                      <button onClick={async () => {
-                        if (!replyMessage.trim()) return;
-                        try {
-                          const res = await fetch('/api/ticket_comments', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ ticket_id: trackedTicket.id, sender: 'User', message: replyMessage.trim() }),
-                          });
-                          const data = await res.json();
-                          if (!res.ok) throw new Error('Failed to post');
-                          setTrackedComments((prev) => [...prev, data.comment]);
-                          setReplyMessage('');
-                        } catch (err) {
-                          alert('Error sending message');
-                        }
-                      }} className="rounded bg-[#800000] px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#600000]">Send Response</button>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">Reply Message</label>
+                      {/* ⌨️ TEXTAREA INTEGRATED WITH ENTER TO TRANSMIT HOOK */}
+                      <textarea 
+                        value={replyMessage} 
+                        onChange={(e) => setReplyMessage(e.target.value)} 
+                        onKeyDown={handleUserKeyDown}
+                        rows={3} 
+                        className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#800000]" 
+                        placeholder="Type updates... (Press Enter to send, Shift+Enter for new line)" 
+                      />
                     </div>
-                  </>
+
+                    {/* 📸 ATTACHMENT PORT INTERFACE CONTROL PANEL */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-2 border border-slate-200 rounded">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Add New Image Error:</span>
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={(e) => setCommentImage(e.target.files?.[0] || null)}
+                          className="text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 transition"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 justify-end">
+                      <button 
+                        onClick={handlePostUserResponse}
+                        disabled={isUploadingComment}
+                        className="rounded bg-[#800000] px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#600000] transition disabled:opacity-50"
+                      >
+                        {isUploadingComment ? 'Processing & Uploading...' : 'Send Response'}
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <div className="rounded bg-red-50 border border-red-100 p-3 text-xs text-red-800 font-bold italic text-center">
                     🔒 This incident file has been verified and permanently closed. Communication stream is locked.
