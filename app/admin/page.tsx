@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-// 🚀 IDINAGDAG ANG 'Raised to APPTech' LIFECYCLE STATE SA OPERATIONAL MATRICES
 const orderedStatuses = ['Registered', 'Assigned', 'Work in Progress', 'Raised to APPTech', 'Completed', 'Closed'];
 
 type Ticket = {
@@ -27,7 +26,6 @@ export default function AdminDashboard() {
   const [filterStatus, setFilterStatus] = useState('All Statuses');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // State variables para sa Authentication Security Wall
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -53,7 +51,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Suriin ang auth token kapag nag-load ang application
   useEffect(() => {
     const token = window.localStorage.getItem('itsm-admin-token');
     if (token) {
@@ -65,7 +62,6 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  // Login handler routine para sa login panel entry box
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
@@ -90,10 +86,13 @@ export default function AdminDashboard() {
     const resolved = tickets.filter(t => t.status === 'Completed' || t.status === 'Closed').length;
     const open = tickets.filter(t => t.status === 'Assigned').length; 
     const registered = tickets.filter(t => t.status === 'Registered').length;
-    
-    const onHold = 0;
-    // 🎗️ DYNAMIC COUNTER FIX: Binabasa na rito ang totoong dami ng mga incident files na may APPTech status tag
+    const inProgress = tickets.filter(t => t.status === 'Work in Progress').length;
     const raisedToAppTech = tickets.filter(t => t.status === 'Raised to APPTech').length;
+    
+    // 🎯 SAKTONG FORMULA: Ang Active Pool lang ay Registered, Assigned, Work in Progress, at Raised to APPTech
+    const activeTotal = registered + open + inProgress + raisedToAppTech;
+
+    const onHold = 0;
     const raisedToSap = 0;
 
     const deptMap: Record<string, number> = {};
@@ -106,6 +105,7 @@ export default function AdminDashboard() {
       const dept = t.department || (t as any).location || 'Not Specified';
       deptMap[dept] = (deptMap[dept] || 0) + 1;
 
+      // Pinapapasok lang ang mga ticket na may valid at totoong pangalan ng support engineer
       if (t.assigned_to && (t.status === 'Completed' || t.status === 'Closed')) {
         resolverMap[t.assigned_to] = (resolverMap[t.assigned_to] || 0) + 1;
       }
@@ -135,7 +135,8 @@ export default function AdminDashboard() {
     const maxDeptVal = Math.max(...Object.values(deptMap), 1);
 
     return {
-      total, resolved, open, registered, onHold, raisedToAppTech, raisedToSap,
+      total, resolved, open, registered, inProgress, onHold, raisedToAppTech, raisedToSap,
+      activeTotal, 
       priorityMap,
       deptMap,
       maxDeptVal,
@@ -153,12 +154,10 @@ export default function AdminDashboard() {
     return matchesStatus && matchesSearch;
   });
 
-  // 1️⃣ KUNG NAGLO-LOAD PA ANG INITIAL PIPELINES
   if (loading && !isAuthenticated) {
     return <div className="min-h-screen bg-[#fcfcf9] flex items-center justify-center text-sm font-semibold text-slate-400">Verifying security configuration manifest...</div>;
   }
 
-  // 2️⃣ KUNG WALANG AUTHENTICATION TOKEN (IPAKITA ANG BRANDED LOGIN PANEL)
   if (!isAuthenticated) {
     return (
       <main className="min-h-screen bg-[#fcfcf9] flex items-center justify-center p-4 font-sans text-slate-800">
@@ -211,7 +210,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // 3️⃣ KUNG AUTHENTICATED NA (IPAKITA ANG BUONG TELEMETRY DASHBOARD)
   return (
     <main className="min-h-screen bg-[#fcfcf9] p-4 lg:p-6 text-slate-800 font-sans">
       <div className="mx-auto max-w-[1650px] flex flex-col gap-5">
@@ -263,13 +261,12 @@ export default function AdminDashboard() {
           </div>
           <div className="border border-slate-400 bg-white text-center p-3 shadow-sm">
             <p className="text-[10px] font-bold uppercase text-blue-900">In Progress</p>
-            <p className="text-3xl font-black text-slate-900 mt-1">{tickets.filter(t => t.status === 'Work in Progress').length}</p>
+            <p className="text-3xl font-black text-slate-900 mt-1">{reportData.inProgress}</p>
           </div>
           <div className="border border-slate-400 bg-white text-center p-3 shadow-sm">
             <p className="text-[10px] font-bold uppercase text-blue-900">Cancelled/OnHold</p>
             <p className="text-3xl font-black text-slate-400 mt-1">{reportData.onHold}</p>
           </div>
-          {/* 🎯 WORKING LOGIC WIDGET: Matagumpay nang nakakabit sa metrics block layout ang Raised to APPTech scorecard */}
           <div className="border border-slate-400 bg-white text-center p-3 shadow-sm">
             <p className="text-[10px] font-bold uppercase text-blue-900">Raised to APPTech</p>
             <p className="text-3xl font-black text-slate-900 mt-1">{reportData.raisedToAppTech}</p>
@@ -283,7 +280,7 @@ export default function AdminDashboard() {
         {/* 🌟 ROW 2: GRAPHICAL DISTRIBUTION MATRIX CHARTS PANEL */}
         <section className="grid gap-4 md:grid-cols-3">
           
-          {/* CHART A: Tickets by Department (Color-Coded Edition) */}
+          {/* CHART A: Tickets by Department */}
           <div className="border border-slate-300 bg-white p-4 shadow-sm flex flex-col justify-between">
             <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b pb-1.5 mb-4">Tickets by Department</h3>
             <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
@@ -324,8 +321,9 @@ export default function AdminDashboard() {
                   background: `conic-gradient(#22c55e 0% ${reportData.total > 0 ? (reportData.resolved / reportData.total) * 360 : 0}deg, #3b82f6 ${reportData.total > 0 ? (reportData.resolved / reportData.total) * 360 : 0}deg ${reportData.total > 0 ? ((reportData.resolved + reportData.open) / reportData.total) * 360 : 0}deg, #ef4444 ${reportData.total > 0 ? ((reportData.resolved + reportData.open) / reportData.total) * 360 : 0}deg 360deg)`
                 }}
               >
+                {/* 🛠️ GANAP NA RECALCULATION: Ipinakita na ang reportData.activeTotal sa sentro ng doughnut */}
                 <div className="w-20 h-24 bg-white rounded-full flex flex-col items-center justify-center">
-                  <span className="text-xl font-black text-slate-900">{reportData.total}</span>
+                  <span className="text-xl font-black text-slate-900">{reportData.activeTotal}</span>
                   <span className="text-[9px] text-slate-400 font-bold uppercase">Active</span>
                 </div>
               </div>
@@ -358,55 +356,7 @@ export default function AdminDashboard() {
 
         </section>
 
-        {/* 🌟 ROW 3: MONTHLY RESOLUTION TREND MATRIX */}
-        <section className="grid gap-4 md:grid-cols-3">
-          <div className="md:col-span-2 border border-slate-300 bg-white p-4 shadow-sm">
-            <div className="border-b pb-1.5 mb-3 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">Total Resolved and Unresolved Tickets by Month</h3>
-              <div className="flex gap-3 text-[10px] font-bold">
-                <span className="text-amber-500">—— Resolved</span>
-                <span className="text-sky-500">—— Unresolved</span>
-              </div>
-            </div>
-            <div className="h-28 flex items-end justify-between border-b border-l border-slate-300 relative px-4 pt-4 font-mono text-[9px] font-bold text-slate-400">
-              <div className="w-full flex justify-between items-end h-full z-10 px-1">
-                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].map((m) => (
-                  <div key={m} className="h-full border-r border-dashed border-slate-100 relative flex flex-col justify-between items-center w-10">
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 absolute top-4 shadow"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-sky-500 absolute bottom-6 shadow"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase mt-1 px-4">
-              <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span>
-            </div>
-          </div>
-
-          <div className="border border-slate-300 bg-white p-4 shadow-sm flex flex-col justify-between">
-            <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b pb-1.5 mb-2">SLA Performance by Priority Target</h3>
-            <div className="space-y-2 text-[11px] font-medium">
-              <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded border border-slate-200">
-                <span className="font-bold text-rose-600">🔴 Critical Target</span>
-                <span className="font-mono bg-white px-2 py-0.5 rounded font-bold border">4 Hours Max</span>
-              </div>
-              <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded border border-slate-200">
-                <span className="font-bold text-amber-600">🟠 High Target</span>
-                <span className="font-mono bg-white px-2 py-0.5 rounded font-bold border">24 Hours (1 Day)</span>
-              </div>
-              <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded border border-slate-200">
-                <span className="font-bold text-sky-600">🟡 Moderate Target</span>
-                <span className="font-mono bg-white px-2 py-0.5 rounded font-bold border">72 Hours (3 Days)</span>
-              </div>
-              <div className="flex justify-between items-center bg-slate-50 p-1.5 rounded border border-slate-200">
-                <span className="font-bold text-slate-500">🟢 Low Target</span>
-                <span className="font-mono bg-white px-2 py-0.5 rounded font-bold border">120 Hours (5 Days)</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 🌟 ROW 4: DATA EXECUTION TABLE QUEUE SYSTEM */}
+        {/* 🌟 ROW 3: DATA EXECUTION TABLE QUEUE SYSTEM */}
         <section className="border border-slate-300 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
             <div>
