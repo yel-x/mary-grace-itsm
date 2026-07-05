@@ -67,6 +67,11 @@ export default function HomePage() {
   // State switch para sa modal tracking screen scale view maximization architecture
   const [isModalMaximized, setIsModalMaximized] = useState(false);
 
+  // 🔒 SECURITY GATE LOCK STATES
+  const [verificationEmailInput, setVerificationEmailInput] = useState('');
+  const [isVerifiedOwner, setIsVerifiedVerifiedOwner] = useState(false);
+  const [securityGateError, setSecurityGateError] = useState('');
+
   const handleChange = (field: keyof TicketFormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -226,8 +231,25 @@ export default function HomePage() {
   // ⌨️ USER KEYBOARD INTERCEPT ENGINE: Enter to Send / Shift+Enter for New Line
   const handleUserKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault(); // Iwasan ang pagbaba ng cursor
-      void handlePostUserResponse(); // Direktang trigger ng transmission hook
+      e.preventDefault(); 
+      void handlePostUserResponse(); 
+    }
+  };
+
+  // 🔒 SECURITY VERIFICATION MATRICES ENGINE DETECTOR
+  const handleVerifyTicketOwnership = () => {
+    setSecurityGateError('');
+    if (!trackedTicket) return;
+
+    const databaseOwnerEmail = (trackedTicket.requestor_email || '').toLowerCase().trim();
+    const userInputEmail = verificationEmailInput.toLowerCase().trim();
+
+    if (userInputEmail === databaseOwnerEmail) {
+      setIsVerifiedVerifiedOwner(true);
+      void fetchCommentsOnly();
+    } else {
+      // 🇺🇸 TRANSLATED ENGINE FOR PRODUCTION: Isinalin nang malinis sa English ang security diagnostic response block
+      setSecurityGateError('You are not authorized to view this ticket because you are not the original requestor.');
     }
   };
 
@@ -361,18 +383,19 @@ export default function HomePage() {
                 <button onClick={async () => {
                   if (!trackNumberInput.trim()) return;
                   try {
+                    setIsVerifiedVerifiedOwner(false);
+                    setVerificationEmailInput('');
+                    setSecurityGateError('');
+
                     const res = await fetch(`/api/tickets?ticket_number=${encodeURIComponent(trackNumberInput.trim())}`);
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Unable to fetch ticket');
                     const found = data.ticket;
                     if (!found) {
-                      alert('Ticket not found');
+                      alert('Ticket number invalid or non-existent in database records.');
                       return;
                     }
                     setTrackedTicket(found);
-                    const commentsRes = await fetch(`/api/ticket_comments?ticket_id=${found.id}`);
-                    const commentsData = await commentsRes.json();
-                    setTrackedComments(commentsData.comments || []);
                     setTrackModalOpen(true);
                   } catch (err) {
                     alert(err instanceof Error ? err.message : 'Error');
@@ -384,7 +407,7 @@ export default function HomePage() {
         </section>
       </div>
 
-      {/* TRACKING MODAL DISPLAY WORKSPACE WITH INTEGRATED DYNAMIC SCALING ENGINE */}
+      {/* TRACKING MODAL DISPLAY WORKSPACE */}
       {trackModalOpen && trackedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
           <div className={`border border-slate-400 bg-white p-5 shadow-xl overflow-y-auto transition-all duration-300 flex flex-col justify-between
@@ -401,7 +424,7 @@ export default function HomePage() {
                       {trackedTicket.status}
                     </span>
                   </p>
-                  {trackedTicket.status === 'Completed' && (
+                  {trackedTicket.status === 'Completed' && isVerifiedOwner && (
                     <button
                       onClick={async () => {
                         if (!confirm('Are you sure you want to re-open this incident ticket?')) return;
@@ -426,19 +449,21 @@ export default function HomePage() {
                 </div>
               </div>
               
-              {/* 🎯 HEADER ACTION WINDOW CONTROLS ALIGNED TO THE RIGHT CORNER TOGETHER */}
               <div className="flex items-center gap-1">
-                <button 
-                  onClick={() => setIsModalMaximized(!isModalMaximized)}
-                  title={isModalMaximized ? "Minimize Window" : "Maximize Window"}
-                  className="rounded border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600 hover:bg-slate-200 transition"
-                >
-                  {isModalMaximized ? '🗕' : '🗖'}
-                </button>
+                {isVerifiedOwner && (
+                  <button 
+                    onClick={() => setIsModalMaximized(!isModalMaximized)}
+                    title={isModalMaximized ? "Minimize Window" : "Maximize Window"}
+                    className="rounded border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600 hover:bg-slate-200 transition"
+                  >
+                    {isModalMaximized ? '🗕' : '🗖'}
+                  </button>
+                )}
                 <button 
                   onClick={() => {
                     setTrackModalOpen(false);
                     setIsModalMaximized(false);
+                    setIsVerifiedVerifiedOwner(false);
                   }} 
                   className="rounded border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100"
                 >
@@ -447,130 +472,158 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* SCROLLABLE SCALABLE WORKSPACE INNER SHEETS */}
-            <div className="mt-4 space-y-4 overflow-y-auto flex-1 pr-1">
-              <div className="bg-slate-50 p-3 border border-slate-200 text-xs rounded">
-                <span className="font-bold text-blue-900 block uppercase tracking-wide mb-1">Incident Summary</span>
-                <p className="font-semibold text-slate-800">{trackedTicket.short_description}</p>
-              </div>
+            {/* 🇺🇸 SECURITY GATE FULL ENGLISH VIEWPORT TRANSLATION BLOCK */}
+            {!isVerifiedOwner ? (
+              <div className="my-auto py-10 max-w-md mx-auto w-full text-center space-y-4 font-sans">
+                <div className="text-4xl">🔒</div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide">Verification Identity Lock</h4>
+                  <p className="text-xs text-slate-500 mt-1 leading-tight">To ensure you are the authorized owner, please enter the email address associated with this ticket log profile.</p>
+                </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Conversation Thread</h4>
+                <div className="space-y-2 text-xs font-semibold">
+                  <input 
+                    type="email"
+                    value={verificationEmailInput}
+                    onChange={(e) => setVerificationEmailInput(e.target.value)}
+                    placeholder="Enter your requestor email address..."
+                    className="w-full rounded border border-slate-300 p-2.5 outline-none font-medium text-center focus:border-[#800000] bg-slate-50 text-slate-800"
+                  />
+                  
+                  {securityGateError && (
+                    <p className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded font-bold leading-snug text-left animate-shake">
+                      ⚠️ {securityGateError}
+                    </p>
+                  )}
+
                   <button
-                    onClick={fetchCommentsOnly}
-                    disabled={isRefreshingComments}
-                    className="text-[10px] font-bold text-slate-500 border border-slate-300 hover:border-[#800000] hover:text-[#800000] bg-white rounded px-2 py-0.5 shadow-sm transition disabled:opacity-40"
+                    onClick={handleVerifyTicketOwnership}
+                    className="w-full bg-[#800000] text-white font-black py-2 rounded shadow-sm hover:bg-[#600000] transition uppercase tracking-wider"
                   >
-                    {isRefreshingComments ? '⏳ Syncing...' : '🔄 Refresh Logs'}
+                    Verify Ticket Ownership
                   </button>
                 </div>
-                
-                {/* MODERN CHAT BUBBLES FOR USER SIDE */}
-                <div className={`space-y-4 overflow-y-auto border p-4 bg-slate-50 rounded shadow-inner font-sans transition-all duration-200
-                  ${isModalMaximized ? 'max-h-[500px]' : 'max-h-56'}`}
-                >
-                  {trackedComments.length === 0 ? (
-                    <div className="text-xs text-slate-400 italic text-center py-4">No historical messages populated inside thread view.</div>
-                  ) : (
-                    trackedComments.map((c) => {
-                      const isUser = c.sender === 'User';
-                      
-                      return (
-                        <div key={c.id} className={`flex items-start gap-2.5 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                          {/* AVATAR ICON */}
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-sm shrink-0
-                            ${isUser ? 'bg-[#1e3f20]' : 'bg-[#800000]'}`}
-                          >
-                            {isUser ? 'US' : 'AD'}
-                          </div>
+              </div>
+            ) : (
+              /* KUNG VERIFIED NA ANG EMAIL, BUKSAN ANG BUONG CHAT AT LOG CONTEXT */
+              <div className="mt-4 space-y-4 overflow-y-auto flex-1 pr-1">
+                <div className="bg-slate-50 p-3 border border-slate-200 text-xs rounded">
+                  <span className="font-bold text-blue-900 block uppercase tracking-wide mb-1">Incident Summary</span>
+                  <p className="font-semibold text-slate-800">{trackedTicket.short_description}</p>
+                </div>
 
-                          {/* CHAT BUBBLE MATRICES */}
-                          <div className={`flex flex-col max-w-[75%] gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
-                            {/* SENDER NAME & TIMESTAMP */}
-                            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 px-1">
-                              <span className="text-slate-700">{isUser ? 'You (Client)' : 'Mary Grace Helpdesk'}</span>
-                              <span>•</span>
-                              <span>{new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-
-                            {/* BUBBLE BODY WITH IMAGE RE-TRANSFORMATION ENGINE */}
-                            <div className={`rounded-2xl px-4 py-2.5 text-xs font-medium whitespace-pre-wrap leading-relaxed shadow-sm
-                              ${isUser 
-                                ? 'bg-blue-600 text-white rounded-tr-none' 
-                                : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
-                              }`}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Conversation Thread</h4>
+                    <button
+                      onClick={fetchCommentsOnly}
+                      disabled={isRefreshingComments}
+                      className="text-[10px] font-bold text-slate-500 border border-slate-300 hover:border-[#800000] hover:text-[#800000] bg-white rounded px-2 py-0.5 shadow-sm transition disabled:opacity-40"
+                    >
+                      {isRefreshingComments ? '⏳ Syncing...' : '🔄 Refresh Logs'}
+                    </button>
+                  </div>
+                  
+                  {/* MODERN CHAT BUBBLES FOR USER SIDE */}
+                  <div className={`space-y-4 overflow-y-auto border p-4 bg-slate-50 rounded shadow-inner font-sans transition-all duration-200
+                    ${isModalMaximized ? 'max-h-[500px]' : 'max-h-56'}`}
+                  >
+                    {trackedComments.length === 0 ? (
+                      <div className="text-xs text-slate-400 italic text-center py-4">No historical messages populated inside thread view.</div>
+                    ) : (
+                      trackedComments.map((c) => {
+                        const isUser = c.sender === 'User';
+                        
+                        return (
+                          <div key={c.id} className={`flex items-start gap-2.5 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white shadow-sm shrink-0
+                              ${isUser ? 'bg-[#1e3f20]' : 'bg-[#800000]'}`}
                             >
-                              {c.message.includes('[Attached Screenshot Asset]:') ? (
-                                <>
-                                  <p>{c.message.split('[Attached Screenshot Asset]:')[0].trim()}</p>
-                                  <div className="mt-2 max-w-xs border rounded overflow-hidden p-1 bg-slate-50 shadow-inner">
-                                    <img 
-                                      src={c.message.split('[Attached Screenshot Asset]:')[1].trim()} 
-                                      alt="Comment Attachment Preview" 
-                                      className="max-h-40 w-full object-contain cursor-zoom-in"
-                                      onClick={() => window.open(c.message.split('[Attached Screenshot Asset]:')[1].trim(), '_blank')}
-                                    />
-                                  </div>
-                                </>
-                              ) : (
-                                c.message
-                              )}
+                              {isUser ? 'US' : 'AD'}
+                            </div>
+
+                            <div className={`flex flex-col max-w-[75%] gap-1 ${isUser ? 'items-end' : 'items-start'}`}>
+                              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 px-1">
+                                <span className="text-slate-700">{isUser ? 'You (Client)' : 'Mary Grace Helpdesk'}</span>
+                                <span>•</span>
+                                <span>{new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+
+                              <div className={`rounded-2xl px-4 py-2.5 text-xs font-medium whitespace-pre-wrap leading-relaxed shadow-sm
+                                ${isUser 
+                                  ? 'bg-blue-600 text-white rounded-tr-none' 
+                                  : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
+                                }`}
+                              >
+                                {c.message.includes('[Attached Screenshot Asset]:') ? (
+                                  <>
+                                    <p>{c.message.split('[Attached Screenshot Asset]:')[0].trim()}</p>
+                                    <div className="mt-2 max-w-xs border rounded overflow-hidden p-1 bg-slate-50 shadow-inner">
+                                      <img 
+                                        src={c.message.split('[Attached Screenshot Asset]:')[1].trim()} 
+                                        alt="Comment Attachment Preview" 
+                                        className="max-h-40 w-full object-contain cursor-zoom-in"
+                                        onClick={() => window.open(c.message.split('[Attached Screenshot Asset]:')[1].trim(), '_blank')}
+                                      />
+                                    </div>
+                                  </>
+                                ) : (
+                                  c.message
+                                )}
+                              </div>
                             </div>
                           </div>
+                        );
+                      })
+                  )}
+                  </div>
+                </div>
+
+                <div className="border-t pt-3 shrink-0">
+                  {trackedTicket.status !== 'Closed' ? (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">Reply Message</label>
+                        <textarea 
+                          value={replyMessage} 
+                          onChange={(e) => setReplyMessage(e.target.value)} 
+                          onKeyDown={handleUserKeyDown}
+                          rows={3} 
+                          className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#800000]" 
+                          placeholder="Type updates... (Press Enter to send, Shift+Enter for new line)" 
+                        />
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-2 border border-slate-200 rounded">
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                          <span className="text-[10px] uppercase font-bold text-slate-400">Add Screen Error:</span>
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => setCommentImage(e.target.files?.[0] || null)}
+                            className="text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 transition"
+                          />
                         </div>
-                      );
-                    })
+                      </div>
+
+                      <div className="flex gap-2 justify-end">
+                        <button 
+                          onClick={handlePostUserResponse}
+                          disabled={isUploadingComment}
+                          className="rounded bg-[#800000] px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#600000] transition disabled:opacity-50"
+                        >
+                          {isUploadingComment ? 'Processing & Uploading...' : 'Send Response'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded bg-red-50 border border-red-100 p-3 text-xs text-red-800 font-bold italic text-center">
+                      🔒 This incident file has been verified and permanently closed. Communication stream is locked.
+                  </div>
                   )}
                 </div>
               </div>
-
-              <div className="border-t pt-3 shrink-0">
-                {trackedTicket.status !== 'Closed' ? (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">Reply Message</label>
-                      {/* ⌨️ TEXTAREA INTEGRATED WITH ENTER TO TRANSMIT HOOK */}
-                      <textarea 
-                        value={replyMessage} 
-                        onChange={(e) => setReplyMessage(e.target.value)} 
-                        onKeyDown={handleUserKeyDown}
-                        rows={3} 
-                        className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#800000]" 
-                        placeholder="Type updates... (Press Enter to send, Shift+Enter for new line)" 
-                      />
-                    </div>
-
-                    {/* 📸 ATTACHMENT PORT INTERFACE CONTROL PANEL */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-2 border border-slate-200 rounded">
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-                        <span className="text-[10px] uppercase font-bold text-slate-400">Add New Image Error:</span>
-                        <input 
-                          type="file" 
-                          accept="image/*"
-                          onChange={(e) => setCommentImage(e.target.files?.[0] || null)}
-                          className="text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 transition"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 justify-end">
-                      <button 
-                        onClick={handlePostUserResponse}
-                        disabled={isUploadingComment}
-                        className="rounded bg-[#800000] px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-[#600000] transition disabled:opacity-50"
-                      >
-                        {isUploadingComment ? 'Processing & Uploading...' : 'Send Response'}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded bg-red-50 border border-red-100 p-3 text-xs text-red-800 font-bold italic text-center">
-                    🔒 This incident file has been verified and permanently closed. Communication stream is locked.
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       )}
