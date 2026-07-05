@@ -25,7 +25,12 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
   const [filterStatus, setFilterStatus] = useState('All Statuses');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  
+  // State variables para sa Authentication Security Wall
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [usernameInput, setUsernameInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [loginError, setLoginError] = useState('');
 
   const fetchDashboardData = async () => {
     try {
@@ -47,11 +52,37 @@ export default function AdminDashboard() {
     }
   };
 
+  // Suriin ang auth token kapag nag-load ang application
   useEffect(() => {
-    // 🚀 BYPASS FORCE OVERRIDE: Diretso operational fetch data agad para iwasan ang looping login filters
-    setIsCheckingAuth(false);
-    void fetchDashboardData();
-  }, [router]);
+    const token = window.localStorage.getItem('itsm-admin-token');
+    if (token) {
+      setIsAuthenticated(true);
+      void fetchDashboardData();
+    } else {
+      setIsAuthenticated(false);
+      setLoading(false);
+    }
+  }, []);
+
+  // Login handler routine para sa login panel entry box
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+
+    // Kinukuha ang credentials mula sa environment variables o gumagamit ng built-in fallbacks
+    const targetUser = process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin';
+    const targetPass = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'Admin@123';
+
+    if (usernameInput === targetUser && passwordInput === targetPass) {
+      const computedToken = btoa(`${targetUser}:${targetPass}`);
+      window.localStorage.setItem('itsm-admin-token', computedToken);
+      setIsAuthenticated(true);
+      setLoading(true);
+      void fetchDashboardData();
+    } else {
+      setLoginError('Invalid administrative user credentials or matching token sequence verification failed.');
+    }
+  };
 
   // 🧠 CORE TELEMETRY COMPUTATION (SAP MG PROGRESS METRICS ENGINE)
   const reportData = useMemo(() => {
@@ -121,10 +152,65 @@ export default function AdminDashboard() {
     return matchesStatus && matchesSearch;
   });
 
-  if (isCheckingAuth && loading) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-sm font-semibold text-slate-400">Loading pipelines...</div>;
+  // 1️⃣ KUNG NAGLO-LOAD PA ANG INITIAL PIPELINES
+  if (loading && !isAuthenticated) {
+    return <div className="min-h-screen bg-[#fcfcf9] flex items-center justify-center text-sm font-semibold text-slate-400">Verifying security configuration manifest...</div>;
   }
 
+  // 2️⃣ KUNG WALANG AUTHENTICATION TOKEN (IPAKITA ANG BRANDED LOGIN PANEL)
+  if (!isAuthenticated) {
+    return (
+      <main className="min-h-screen bg-[#fcfcf9] flex items-center justify-center p-4 font-sans text-slate-800">
+        <div className="w-full max-w-sm bg-white border border-slate-300 p-6 shadow-md rounded">
+          <div className="flex flex-col items-center gap-3 border-b-2 border-[#800000] pb-4 mb-5 text-center">
+            <img src="/mary-grace-logo.jpeg" alt="Mary Grace Logo" className="w-24 h-16 object-contain rounded" />
+            <div>
+              <span className="text-[9px] font-black tracking-widest text-slate-400 block uppercase">ITSM CONTROL CONSOLE</span>
+              <h2 className="text-lg font-black text-[#800000] uppercase mt-0.5">Admin Authentication</h2>
+            </div>
+          </div>
+          
+          <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs font-semibold">
+            {loginError && (
+              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded leading-tight">
+                ⚠️ {loginError}
+              </div>
+            )}
+            <div>
+              <label className="block text-slate-500 mb-1 uppercase font-bold text-[10px]">Administrative Account Name</label>
+              <input 
+                type="text" 
+                value={usernameInput}
+                onChange={(e) => setUsernameInput(e.target.value)}
+                placeholder="e.g., admin"
+                className="w-full rounded border border-slate-300 p-2 font-medium outline-none focus:border-[#800000] text-slate-800 bg-slate-50"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-slate-500 mb-1 uppercase font-bold text-[10px]">Secure Key Access Password</label>
+              <input 
+                type="password" 
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="••••••••"
+                className="w-full rounded border border-slate-300 p-2 font-medium outline-none focus:border-[#800000] text-slate-800 bg-slate-50"
+                required
+              />
+            </div>
+            <button 
+              type="submit"
+              className="w-full bg-[#800000] text-white font-bold py-2 px-4 rounded shadow-sm hover:bg-[#600000] transition text-center uppercase tracking-wider mt-2"
+            >
+              Verify Credentials
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
+
+  // 3️⃣ KUNG AUTHENTICATED NA (IPAKITA ANG BUONG TELEMETRY DASHBOARD)
   return (
     <main className="min-h-screen bg-[#fcfcf9] p-4 lg:p-6 text-slate-800 font-sans">
       <div className="mx-auto max-w-[1650px] flex flex-col gap-5">
@@ -145,7 +231,8 @@ export default function AdminDashboard() {
               <button
                 onClick={() => {
                   window.localStorage.removeItem('itsm-admin-token');
-                  router.push('/admin');
+                  setIsAuthenticated(false);
+                  setTickets([]);
                 }}
                 className="rounded bg-slate-900 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition"
               >
@@ -199,7 +286,6 @@ export default function AdminDashboard() {
             <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b pb-1.5 mb-4">Tickets by Department</h3>
             <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
               {Object.entries(reportData.deptMap).map(([dept, count]) => {
-                // 🧠 DYNAMIC PALETTE HASH ENGINE
                 const colorsPool = ['#a855f7', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ca8a04', '#d97706', '#ec4899', '#f43f5e', '#14b8a6', '#6366f1', '#84cc16', '#f43f5e', '#ec4899', '#14b8a6'];
                 const charSum = dept.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                 const assignedColor = colorsPool[charSum % colorsPool.length];
