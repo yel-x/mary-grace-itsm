@@ -1,0 +1,32 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "ticket_number": "RITM000001",
+    "requestor_name": "Jane Doe",
+    "requestor_email": "jane.doe@example.com",
+    "requestor_t_number": "555-0101",
+    "requestor_user_id": "JDOE",
+    "contact_type": "Email",
+    "priority": "High",
+    "location": "London",
+    "short_description": "Email not syncing",
+    "description": "User reports inbound emails are delayed.",
+    "status": "Registered",
+    "created_at": "2026-07-01T12:00:00Z"
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000002",
+    "ticket_number": "RITM000002",
+    "requestor_name": "John Smith",
+    "requestor_email": "john.smith@example.com",
+    "requestor_t_number": "",
+    "requestor_user_id": "JSMITH",
+    "contact_type": "Web",
+    "priority": "Moderate",
+    "location": "New York",
+    "short_description": "Application error on login",
+    "description": "Login fails with 500 error for multiple users.",
+    "status": "Registered",
+    "created_at": "2026-07-01T13:30:00Z"
+  }
+]
