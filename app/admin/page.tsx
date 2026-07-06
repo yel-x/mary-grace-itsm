@@ -89,7 +89,6 @@ export default function AdminDashboard() {
     const inProgress = tickets.filter(t => t.status === 'Work in Progress').length;
     const raisedToAppTech = tickets.filter(t => t.status === 'Raised to APPTech').length;
     
-    // 🎯 SAKTONG FORMULA: Ang Active Pool lang ay Registered, Assigned, Work in Progress, at Raised to APPTech
     const activeTotal = registered + open + inProgress + raisedToAppTech;
 
     const onHold = 0;
@@ -105,7 +104,6 @@ export default function AdminDashboard() {
       const dept = t.department || (t as any).location || 'Not Specified';
       deptMap[dept] = (deptMap[dept] || 0) + 1;
 
-      // Pinapapasok lang ang mga ticket na may valid at totoong pangalan ng support engineer
       if (t.assigned_to && (t.status === 'Completed' || t.status === 'Closed')) {
         resolverMap[t.assigned_to] = (resolverMap[t.assigned_to] || 0) + 1;
       }
@@ -212,6 +210,17 @@ export default function AdminDashboard() {
 
   return (
     <main className="min-h-screen bg-[#fcfcf9] p-4 lg:p-6 text-slate-800 font-sans">
+      {/* INJECTED CSS UTILITY STYLE FOR CLEAN AUTO-HIDE SCROLLBAR ENGINE */}
+      <style jsx global>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+
       <div className="mx-auto max-w-[1650px] flex flex-col gap-5">
         
         {/* TOP COMPONENT: APP BRANDING HEADER */}
@@ -283,7 +292,8 @@ export default function AdminDashboard() {
           {/* CHART A: Tickets by Department */}
           <div className="border border-slate-300 bg-white p-4 shadow-sm flex flex-col justify-between">
             <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b pb-1.5 mb-4">Tickets by Department</h3>
-            <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+            {/* 🛠️ SOLUSION INJECTED: Idinagdag ang .no-scrollbar selector class para itago ang magaspang na scrollbar block line */}
+            <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1 no-scrollbar">
               {Object.entries(reportData.deptMap).map(([dept, count]) => {
                 const colorsPool = ['#a855f7', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ca8a04', '#d97706', '#ec4899', '#f43f5e', '#14b8a6', '#6366f1', '#84cc16', '#f43f5e', '#ec4899', '#14b8a6'];
                 const charSum = dept.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -321,7 +331,6 @@ export default function AdminDashboard() {
                   background: `conic-gradient(#22c55e 0% ${reportData.total > 0 ? (reportData.resolved / reportData.total) * 360 : 0}deg, #3b82f6 ${reportData.total > 0 ? (reportData.resolved / reportData.total) * 360 : 0}deg ${reportData.total > 0 ? ((reportData.resolved + reportData.open) / reportData.total) * 360 : 0}deg, #ef4444 ${reportData.total > 0 ? ((reportData.resolved + reportData.open) / reportData.total) * 360 : 0}deg 360deg)`
                 }}
               >
-                {/* 🛠️ GANAP NA RECALCULATION: Ipinakita na ang reportData.activeTotal sa sentro ng doughnut */}
                 <div className="w-20 h-24 bg-white rounded-full flex flex-col items-center justify-center">
                   <span className="text-xl font-black text-slate-900">{reportData.activeTotal}</span>
                   <span className="text-[9px] text-slate-400 font-bold uppercase">Active</span>
@@ -338,7 +347,7 @@ export default function AdminDashboard() {
           {/* CHART C: Top Performers */}
           <div className="border border-slate-300 bg-white p-4 shadow-sm">
             <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b pb-1.5 mb-3">Top Performers (Resolved Tickets)</h3>
-            <div className="space-y-2 max-h-[220px] overflow-y-auto">
+            <div className="space-y-2 max-h-[220px] overflow-y-auto no-scrollbar">
               {reportData.topResolvers.map(([name, val], idx) => (
                 <div key={name} className="flex flex-col gap-1 bg-slate-50 p-2 border border-slate-200 rounded">
                   <div className="flex justify-between text-[11px] font-bold text-slate-700">
