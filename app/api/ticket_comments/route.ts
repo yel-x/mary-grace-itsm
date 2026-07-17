@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/lib/supabase';
 
+// 🚀 SPEED & REFRESH PATCH: Pinilit ang Next.js na i-bypass ang production Vercel caching mechanism para maging fully real-time live polling!
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -8,7 +11,11 @@ export async function GET(request: Request) {
     if (!ticketId) return NextResponse.json({ error: 'ticket_id is required' }, { status: 400 });
 
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.from('ticket_comments').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
+    const { data, error } = await supabase
+      .from('ticket_comments')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .order('created_at', { ascending: true });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ comments: data });
